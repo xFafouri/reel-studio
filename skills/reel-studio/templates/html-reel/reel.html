@@ -1,0 +1,119 @@
+<!doctype html>
+<!--
+  Starter 9:16 scene page for scripts/render-html.mjs (7 s demo).
+  Every animation-delay is a time in seconds ON THE WHOLE VIDEO (--t / --d / --s / --e), so the renderer can seek
+  any frame. In a real video those times come from the voice: align_words.py says when each word is said.
+    node ../../scripts/render-html.mjs reel.html --stills 1.2,3.6,6.4
+    node ../../scripts/render-html.mjs reel.html --sheet 1
+    node ../../scripts/render-html.mjs reel.html --out reel.mp4
+  Fonts: point @font-face at real files (npm i @fontsource/inter, then
+  url(../../node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2)). Never let an image model draw text.
+  Right-to-left languages: <html dir="rtl">, keep everything inside .stage (overflow:hidden), see references/arabic.md.
+  Palette and fonts below are placeholders: use the project's own brand.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --ink: #1C2333; --accent: #D9472B; --highlight: #F4B63F; --paper: #F5EFE4; --paper2: #E8DCC8;
+          --head: Inter, "Helvetica Neue", Arial, sans-serif; --hand: "Comic Neue", "Segoe Print", var(--head); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { font-family: var(--head); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  /* everything inside a clipped stage (in a right-to-left page anything sticking out scrolls the view sideways) */
+  .stage { position: absolute; inset: 0; overflow: hidden; }
+
+  /* paper + STILL grain (moving grain looks like video noise; still grain looks like paper) */
+  .paper { position: absolute; inset: 0; background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='4'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .32 0 0 0 0 .18 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23f)'/%3E%3C/svg%3E"),
+    radial-gradient(120% 75% at 50% 35%, var(--paper) 0%, var(--paper) 45%, var(--paper2) 100%); }
+  .grain { position: absolute; inset: -40px; z-index: 35; pointer-events: none; mix-blend-mode: multiply; opacity: .16;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .25 0 0 0 0 .2 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  /* scenes: --s start, --e end (seconds) */
+  .sc { position: absolute; inset: 0; opacity: 0; animation: scIn .35s cubic-bezier(.2,.8,.2,1) var(--s) both, scOut .25s ease-in calc(var(--e) - .25s) forwards; }
+  .sc.first { opacity: 1; animation: scOut .25s ease-in calc(var(--e) - .25s) forwards; }
+  @keyframes scIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: none; } }
+  @keyframes scOut { to { opacity: 0; transform: scale(.97); } }
+
+  /* hook title: each word appears when it is said */
+  .title { position: absolute; top: 330px; left: 70px; right: 70px; font: 800 120px/1.18 var(--head); text-align: center; text-wrap: balance; letter-spacing: -1px; }
+  .tw { display: inline-block; animation: tw .3s cubic-bezier(.3,1.5,.5,1) var(--d) both; }
+  @keyframes tw { from { opacity: 0; transform: translateY(36px) rotate(-6deg) scale(.8); } to { opacity: 1; transform: none; } }
+  .title mark { color: #fff; background: var(--accent); padding: 0 22px 8px; border-radius: 18px 6px 20px 8px; display: inline-block; rotate: -2deg; }
+
+  /* stop-motion "boil": pieces jitter a little, a few times a second (steps, not smooth) */
+  .pb { animation: drop .5s cubic-bezier(.3,1.5,.5,1) var(--d) both, boil .5s steps(1) infinite; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-50px) rotate(-9deg) scale(.6); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+  @keyframes boil { 0% { rotate: -.5deg; } 33% { rotate: .45deg; translate: 1px -1px; } 66% { rotate: -.15deg; translate: -1px 1px; } }
+
+  /* a taped paper scrap */
+  .scrap { position: absolute; display: inline-flex; align-items: center; gap: 16px; padding: 22px 34px 24px; background: #FFFCF4;
+    font: 700 56px/1.25 var(--head); border-radius: 6px 14px 8px 16px; box-shadow: 0 14px 22px rgba(70,45,20,.22); rotate: -2deg; }
+  .scrap::before { content: ''; position: absolute; top: -20px; left: 50%; width: 160px; height: 44px; margin-left: -80px; background: rgba(244,182,63,.55); rotate: 3deg; }
+
+  /* a hand-drawn line: hidden until drawn (else the round pen tip shows as a dot) */
+  .draw { position: absolute; overflow: visible; }
+  .draw path { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0;
+    animation: draw .5s ease-out var(--d) forwards; }
+  @keyframes draw { from { stroke-dashoffset: 1; opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+
+  .big { position: absolute; top: 600px; left: 0; right: 0; text-align: center; font: 800 260px/1 var(--head); color: var(--accent); letter-spacing: -6px; }
+  .big small { font-size: 96px; letter-spacing: 0; }
+  .hand { position: absolute; font: 700 60px/1.3 var(--hand); white-space: nowrap; }
+  .fade { animation: fade .5s ease-out var(--d) both; } @keyframes fade { from { opacity: 0; } }
+
+  .stamp { position: absolute; top: 1050px; left: 50%; translate: -50% 0; padding: 14px 46px; border: 10px solid var(--accent); border-radius: 18px;
+    font: 800 120px/1 var(--head); color: var(--accent); animation: stamp .32s cubic-bezier(.2,1.6,.4,1) var(--d) both; }
+  @keyframes stamp { from { opacity: 0; transform: scale(2.4) rotate(-14deg); } to { opacity: 1; transform: rotate(-8deg); } }
+  .shake { position: absolute; inset: 0; animation: shake .45s cubic-bezier(.36,.07,.19,.97) var(--d) both; }
+  @keyframes shake { 10%,90% { transform: translate(-3px,1px); } 20%,80% { transform: translate(6px,-2px); } 30%,50%,70% { transform: translate(-10px,3px); } 40%,60% { transform: translate(10px,-3px); } }
+
+  /* captions: keep this zone (y ≈ 1250–1500) clear of art; platform buttons cover the bottom ~350 px */
+  .caps { position: absolute; left: 60px; right: 60px; top: 1250px; height: 250px; z-index: 40; }
+  .chunk { position: absolute; inset: 0; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 0 26px; opacity: 0;
+    animation: cIn .14s ease-out var(--a) both, cOut .08s linear var(--b) forwards; }
+  @keyframes cIn { from { opacity: 0; transform: translateY(22px) scale(.94); } to { opacity: 1; transform: none; } }
+  @keyframes cOut { to { opacity: 0; } }
+  .cw { display: inline-block; font: 800 86px/1.3 var(--head); color: #fff;
+    text-shadow: 0 3px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 -3px 0 var(--ink), 3px 3px 0 var(--ink), -3px 3px 0 var(--ink), 3px -3px 0 var(--ink), -3px -3px 0 var(--ink), 0 10px 24px rgba(0,0,0,.4);
+    animation: wOn .1s ease-out var(--t) both, wOff .1s linear var(--u) forwards; }
+  @keyframes wOn { to { color: var(--highlight); transform: scale(1.1); } }
+  @keyframes wOff { to { color: #fff; transform: scale(1); } }
+</style>
+</head>
+<body data-duration="7">
+<div class="stage">
+<div class="paper"></div>
+
+<!-- scene 1 (0–3.4 s): the hook, each word on the beat it is said -->
+<section class="sc first" style="--s:0s;--e:3.4s">
+  <h1 class="title">
+    <span class="tw" style="--d:.15s">Every</span>
+    <span class="tw" style="--d:.45s"><mark>frame</mark></span>
+    <span class="tw" style="--d:.8s">is</span>
+    <span class="tw" style="--d:1.05s">code.</span>
+  </h1>
+  <span class="scrap pb" style="--d:2s;top:860px;left:180px">No editor. No timeline.</span>
+  <svg class="draw" style="top:1000px;left:190px" width="700" height="40" viewBox="0 0 700 40"><path pathLength="1" style="--d:2.5s" d="M8 24 C 180 6, 380 34, 692 14"/></svg>
+</section>
+
+<!-- scene 2 (3.4–7 s): a counted number, a handwritten note, a stamp with a jolt -->
+<section class="sc" style="--s:3.4s;--e:7s">
+  <div class="shake" style="--d:5.6s">
+    <div class="big"><span data-count="30" data-at="3.7" data-for="0.9">0</span> <small>fps</small></div>
+    <span class="hand fade" style="--d:4.4s;top:900px;left:0;right:0;text-align:center">every frame set on purpose</span>
+    <div class="stamp" style="--d:5.6s">DONE!</div>
+  </div>
+</section>
+
+<!-- captions of scene 2 (2–3 words a group, the word being said lit up) -->
+<div class="caps">
+  <div class="chunk" style="--a:3.6s;--b:4.5s"><span class="cw" style="--t:3.65s;--u:3.95s">thirty</span> <span class="cw" style="--t:3.95s;--u:4.25s">frames</span> <span class="cw" style="--t:4.25s;--u:4.5s">a</span></div>
+  <div class="chunk" style="--a:4.5s;--b:5.5s"><span class="cw" style="--t:4.5s;--u:4.9s">second,</span> <span class="cw" style="--t:4.9s;--u:5.5s">exact.</span></div>
+</div>
+
+<div class="grain"></div>
+</div>
+</body>
+</html>

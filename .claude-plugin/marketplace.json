@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "reel-studio",
+  "owner": { "name": "xFafouri", "url": "https://github.com/xFafouri" },
+  "plugins": [
+    {
+      "name": "reel-studio",
+      "source": "./",
+      "description": "Video from code with free tools: Reels/Shorts, explainers, motion graphics, logo intros and presentation videos (voice-driven animation, SFX, mix, QA).",
+      "category": "productivity"
+    }
+  ],
+  "metadata": { "description": "reel-studio: agent skills for making short videos and presentation videos from code." }
+}

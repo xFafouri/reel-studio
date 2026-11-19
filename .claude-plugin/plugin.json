@@ -1,0 +1,8 @@
+{
+  "name": "reel-studio",
+  "version": "0.1.0",
+  "description": "Make Reels, Shorts, explainer animations, motion graphics, logo intros and presentation videos from code with free tools: script, voice, word timing, HTML/Remotion/HyperFrames/Blender scenes, sound effects, mix, QA and thumbnails.",
+  "author": { "name": "xFafouri", "url": "https://github.com/xFafouri" },
+  "license": "MIT",
+  "keywords": ["video", "reels", "shorts", "tiktok", "motion-design", "animation", "ffmpeg", "remotion", "hyperframes", "blender", "playwright", "tts", "captions", "sound-design"]
+}

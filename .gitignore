@@ -1,0 +1,8 @@
+node_modules/
+.venv/
+.env
+.mix/
+out/
+output/
+*.pcm
+.DS_Store
